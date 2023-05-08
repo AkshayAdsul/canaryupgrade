@@ -1,11 +1,5 @@
-# Environment Setup : 3 x k8s cluster
-
-kubectl config use-context gke_solo-test-236622_australia-southeast1_akshay-akshaygojek
-kubectl config use-context gke_field-engineering-apac_australia-southeast1_ash-locust-client
-kubectl config use-context gke_field-engineering-apac_australia-southeast1_ash-locust-client2
-
-# Repo
-https://github.com/sailinnthu/scale-tests/tree/main/gloo-edge-gke
+#Repo
+https://github.com/AkshayAdsul/canaryupgrade.git
 
 # Reference: https://docs.solo.io/gloo-edge/latest/operations/production_deployment/#downstream-to-envoy-health-checks
 
@@ -61,13 +55,13 @@ gloo:
 
 
 # install GE 1-11-43
-helm install gloo glooe/gloo-ee --namespace gloo-system --version 1.11.31 -f helmvalues-edgetest-staticLBIP-1-11-43.yaml --create-namespace --set-string license_key=$GLOO_EDGE_LICENSE_KEY
+helm install gloo glooe/gloo-ee --namespace gloo-system --version 1.11.43 -f helmvalues-edgetest-staticLBIP-1-11-43.yaml --create-namespace --set-string license_key=$GLOO_EDGE_LICENSE_KEY
 
 # deploy test workload and virtual service
 kubectl apply -f echoenv.yaml
 kubectl apply -f echoenv-vs-1-11-43.yaml
 
-# In Locust, set the host `http://loadtesting.gojek.apac.fe.gl00.net` > DNS record is created in GCP
+# In Locust, set the host `http://load.gojektesting.apac.fe.gl00.net` > DNS record is created in GCP
 
 # access Locust localhost:8089
 kubectl port-forward svc/locust --address 0.0.0.0 8089:8089 --context gke_field-engineering-apac_australia-southeast1_ash-locust-client
@@ -78,22 +72,22 @@ kubectl port-forward svc/locust --address 0.0.0.0 8089:8089 --context gke_field-
 
 # Upgrade your version of glooctl
 # Reference https://docs.solo.io/gloo-edge/latest/operations/upgrading/upgrade_steps/#step-2-upgrade-glooctl
-glooctl upgrade --release v1.12.24
+glooctl upgrade --release v1.14.1
 
 
 # Get the new CRDs version 1-14-1
 helm repo update
 
 mkdir 1-14-1 && cd 1-14-1
-helm pull glooe/gloo-ee --version 1.12.24 --untar
+helm pull glooe/gloo-ee --version 1.14.1 --untar
 
 
-# Note: Compare version in the Changelog https://docs.solo.io/gloo-edge/latest/reference/changelog/enterprise/#compareversions_v1.11.31...v1.12.24`
+# Note: Compare version in the Changelog https://docs.solo.io/gloo-edge/latest/reference/changelog/enterprise/#compareversions_v1.11.43...v1.14.1`
 
 # Note: compare 1-11-43/gloo-ee/values.yaml `vs` 1-14-1/gloo-ee/values.yaml` to check anything we need to update.
 
 
-# Apply the new and updated CRDs for the newer version (e.g:) 1.12.24
+# Apply the new and updated CRDs for the newer version (e.g:) 1.14.1
 cd ..
 kubectl apply -f 1-14-1/gloo-ee/charts/gloo/crds
 
@@ -101,7 +95,7 @@ kubectl apply -f 1-14-1/gloo-ee/charts/gloo/crds
 kubectl apply -f 1-14-1/gloo-ee/charts/gloo-fed/crds
 
 
-# check the Lotus for any failures and also gateway-proxy HPA
+# check the Locust for any failures and also gateway-proxy HPA
 
 # just for canary upgrade add the following the helm values for 1-14-1 in helmvalues-edgetest-staticLBIP-1-14-1.yaml
 # to add
@@ -149,20 +143,20 @@ install GlooEdge 1-14-1
 `Create a new namespace to install newer version of GE`
 kubectl create ns gloo-system-1-14-1
 
-helm install gloo-1-14-1 glooe/gloo-ee --namespace gloo-system-1-14-1 --version 1.12.24 -f helmvalues-edgetest-staticLBIP-1-14-1.yaml --create-namespace --set-string license_key=$GLOO_EDGE_LICENSE_KEY
+helm install gloo-1-14-1 glooe/gloo-ee --namespace gloo-system-1-14-1 --version 1.14.1 -f helmvalues-edgetest-staticLBIP-1-14-1.yaml --create-namespace --set-string license_key=$GLOO_EDGE_LICENSE_KEY
 
 `Create VS for 1-14-1`
 kubectl create -f echoenv-vs-1-14-1.yaml
 
 
 `helm list -A`
-NAME            NAMESPACE               REVISION        UPDATED                                 STATUS          CHART           APP VERSION
-gloo            gloo-system             2               2022-10-11 11:26:42.855992 +0800 +08    deployed        gloo-ee-1.11.43            
-gloo-1-14-1    gloo-system-1-14-1     1               2022-10-11 13:01:59.324153 +0800 +08    deployed        gloo-ee-1.12.24 
+NAME       	NAMESPACE         	REVISION	UPDATED                              	STATUS  	CHART          	APP VERSION
+gloo       	gloo-system       	1       	2023-05-03 10:16:13.901 +1000 AEST   	deployed	gloo-ee-1.11.43	           
+gloo-1-14-1	gloo-system-1-14-1	2       	2023-05-03 12:07:07.276895 +1000 AEST	deployed	gloo-ee-1.14.1 
 
 `kubectl get svc -A | grep gateway-proxy`
-gloo-system-1-14-1   gateway-proxy                         LoadBalancer   10.108.14.142   10.152.0.11   80:30056/TCP,443:31486/TCP                             15m
-gloo-system           gateway-proxy                         LoadBalancer   10.108.4.255    10.152.0.10   80:32402/TCP,443:31074/TCP                             125m
+gloo-system-1-14-1   gateway-proxy                         LoadBalancer   10.116.71.116   10.152.0.11   80:30424/TCP,443:31041/TCP                             4d23h
+gloo-system          gateway-proxy                         LoadBalancer   10.116.70.35    10.152.0.10   80:31829/TCP,443:31898/TCP                             5d
 
 
 `kubectl get upstreams -A | grep echo`
