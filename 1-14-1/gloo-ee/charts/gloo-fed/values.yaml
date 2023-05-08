@@ -1,0 +1,90 @@
+enabled: true
+glooFed:
+  replicas: 1
+  image:
+    pullPolicy: IfNotPresent
+    repository: gloo-fed
+    tag: 1.14.1@sha256:77d822472c31f6c6667454f0a6606f72f2b66a7832d010c84ccc548e21fb6ad3
+  resources:
+    requests:
+      cpu: 125m
+      memory: 256Mi
+  retries:
+    clusterWatcherRemote:
+      type: backoff
+      delay: 1s
+      maxDelay: 0
+      maxJitter: 100ms
+      attempts: 0
+    clusterWatcherLocal:
+      type: backoff
+      delay: 100ms
+      maxDelay: 0
+      maxJitter: 100ms
+      attempts: 5
+# the UI can be enabled independently of gloo-fed
+glooFedApiserver:
+  enable: true
+  port: 10101
+  healthCheckPort: 8081
+  stats: null
+  floatingUserId: false
+  runAsUser: 101
+  image:
+    pullPolicy: IfNotPresent
+    repository: gloo-fed-apiserver
+    tag: 1.14.1@sha256:d73412ceb5fe619e864bb6dc81a0f61860e9945daa56bd839dfcf1b87dfc85df
+  resources:
+    requests:
+      cpu: 125m
+      memory: 256Mi
+  envoy:
+    bootstrapConfig:
+      configMapName: gloo-fed-default-apiserver-envoy-config
+    image:
+      pullPolicy: IfNotPresent
+      repository: gloo-fed-apiserver-envoy
+      tag: 1.14.1@sha256:0c0305b5bcb38958488f699310e226b98669f1c3166bf33c1eb181c19d544cad
+    resources:
+      requests:
+        cpu: 125m
+        memory: 256Mi
+  console:
+    port: 8090
+    image:
+      pullPolicy: IfNotPresent
+      repository: gloo-federation-console
+      tag: 1.14.1@sha256:978e1c17ac4158f3008b24b788db0f8c5015b715c2ec977879fca86e4a0668f9
+    resources:
+      requests:
+        cpu: 125m
+        memory: 256Mi
+global:
+  glooStats:
+    enabled: true
+  glooMtls:
+    enabled: false
+  image:
+    extended: false
+    pullPolicy: IfNotPresent
+    registry: quay.io/solo-io
+  istioIntegration: {}
+  istioSDS: {}
+  console:
+    readOnly: false
+    apiExplorerEnabled: true
+license_key: ""
+license_secret_name: license
+create_license_secret: true
+enableMultiClusterRbac: false
+rbacWebhook:
+  image:
+    pullPolicy: IfNotPresent
+    repository: gloo-fed-rbac-validating-webhook
+    tag: 1.14.1@sha256:8e9fc03019136587fb9cf8fea3e4ca717809075f378d7e1b2734c6d0bfa3b85c
+  resources:
+    requests:
+      cpu: 125m
+      memory: 256Mi
+rbac:
+  create: true

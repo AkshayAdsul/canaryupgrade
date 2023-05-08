@@ -1,0 +1,164 @@
+{{- if .Values.gateway.cleanupJob.enabled }}
+{{- $image := .Values.gateway.cleanupJob.image }}
+{{- if .Values.global }}
+{{- $image = merge .Values.gateway.cleanupJob.image .Values.global.image }}
+{{- end }}
+apiVersion: batch/v1
+kind: Job
+metadata:
+  labels:
+    app: gloo
+    gloo: resource-cleanup
+  name: gloo-resource-cleanup
+  namespace: {{ .Release.Namespace }}
+  annotations:
+    "helm.sh/hook": post-delete
+    "helm.sh/hook-weight": "5" # run this job after the role/rolebinding is created
+    "helm.sh/hook-delete-policy": hook-succeeded,before-hook-creation
+spec:
+  {{- include "gloo.jobSpecStandardFields" .Values.gateway.cleanupJob | nindent 2 -}}
+  template:
+    metadata:
+      labels:
+        gloo: resource-cleanup
+        sidecar.istio.io/inject: "false"
+        {{- if .Values.gateway.cleanupJob.extraPodLabels }}
+        {{- range $key, $value := .Values.gateway.cleanupJob.extraPodLabels }}
+        {{ $key | quote }}: {{ $value | quote }}
+        {{- end }}
+        {{- end }}
+      {{- if or .Values.settings.linkerd .Values.gateway.cleanupJob.extraPodAnnotations }}
+      annotations:
+        {{- if .Values.settings.linkerd }}
+        "linkerd.io/inject": disabled
+        {{- end }}
+        {{- range $key, $value := .Values.gateway.cleanupJob.extraPodAnnotations }}
+        {{ $key | quote }}: {{ $value | quote }}
+        {{- end }}
+      {{- end }}
+    spec:
+      {{- include "gloo.pullSecret" $image | nindent 6 -}}
+      serviceAccountName: gloo-resource-cleanup
+      {{- include "gloo.podSpecStandardFields" .Values.gateway.cleanupJob | nindent 6 -}}
+      containers:
+        - name: kubectl
+          image: {{template "gloo.image" $image}}
+          imagePullPolicy: {{ $image.pullPolicy }}
+          securityContext:
+            runAsNonRoot: true
+            {{- if not .Values.gateway.cleanupJob.floatingUserId }}
+            runAsUser: {{ printf "%.0f" (float64 .Values.gateway.cleanupJob.runAsUser) -}}
+            {{- end }}
+          {{- with .Values.gateway.cleanupJob.resources }}
+          resources: {{ toYaml . | nindent 12}}
+          {{- end }}
+          command:
+          - /bin/sh
+          - -c
+          - |
+            kubectl delete --ignore-not-found validatingwebhookconfigurations.admissionregistration.k8s.io gloo-gateway-validation-webhook-{{ .Release.Namespace }} || exit $?
+
+            if ! kubectl get crd upstreams.gloo.solo.io; then
+              echo "Could not find Upstream CRD. Gloo Edge CRDs may have already been deleted. Skipping cleanup of Gloo Edge resources."
+              exit 0
+            fi
+
+            kubectl delete --ignore-not-found upstreams.gloo.solo.io -n {{ .Release.Namespace }} -l app=gloo || exit $?
+
+            # gateways can be in multiple namespaces
+            {{- range include "gloo.gatewayNamespaces" . | fromJsonArray }}
+            kubectl delete --ignore-not-found gateways.gateway.solo.io -n {{ . }} -l app=gloo || exit $?
+            {{- end }}
+{{- if .Values.global.glooRbac.create }}
+---
+apiVersion: v1
+kind: ServiceAccount
+metadata:
+  labels:
+    app: gloo
+    gloo: rbac
+  annotations:
+    "helm.sh/hook": post-delete
+    "helm.sh/hook-weight": "0" # must be created before cleanup job
+    "helm.sh/hook-delete-policy": hook-succeeded,before-hook-creation
+  name: gloo-resource-cleanup
+  namespace: {{ .Release.Namespace }}
+---
+kind: Role
+apiVersion: rbac.authorization.k8s.io/v1
+metadata:
+  name: gloo-resource-cleanup
+  namespace: {{ .Release.Namespace }}
+  labels:
+    app: gloo
+    gloo: rbac
+  annotations:
+    "helm.sh/hook": post-delete
+    "helm.sh/hook-weight": "0" # must be created before cleanup job
+    "helm.sh/hook-delete-policy": hook-succeeded,before-hook-creation
+rules:
+- apiGroups: ["gloo.solo.io"]
+  resources: ["*"]
+  verbs: ["list", "delete"]
+---
+kind: RoleBinding
+apiVersion: rbac.authorization.k8s.io/v1
+metadata:
+  name: gloo-resource-cleanup
+  namespace: {{ .Release.Namespace }}
+  labels:
+    app: gloo
+    gloo: rbac
+  annotations:
+    "helm.sh/hook": post-delete
+    "helm.sh/hook-weight": "0" # must be created before cleanup job
+    "helm.sh/hook-delete-policy": hook-succeeded,before-hook-creation
+roleRef:
+  kind: Role
+  name: gloo-resource-cleanup
+  apiGroup: rbac.authorization.k8s.io
+subjects:
+- kind: ServiceAccount
+  name: gloo-resource-cleanup
+  namespace: {{ .Release.Namespace }}
+---
+kind: ClusterRole
+apiVersion: rbac.authorization.k8s.io/v1
+metadata:
+  name: gloo-resource-cleanup{{ include "gloo.rbacNameSuffix" . }}
+  labels:
+    app: gloo
+    gloo: rbac
+  annotations:
+    "helm.sh/hook": post-delete
+    "helm.sh/hook-weight": "0" # must be created before cleanup job
+    "helm.sh/hook-delete-policy": hook-succeeded,before-hook-creation
+rules:
+- apiGroups: ["admissionregistration.k8s.io"]
+  resources: ["validatingwebhookconfigurations"]
+  verbs: ["delete"]
+- apiGroups: ["gateway.solo.io"]
+  resources: ["*"]
+  verbs: ["list", "delete"]
+---
+kind: ClusterRoleBinding
+apiVersion: rbac.authorization.k8s.io/v1
+metadata:
+  name: gloo-resource-cleanup{{ include "gloo.rbacNameSuffix" . }}
+  labels:
+    app: gloo
+    gloo: rbac
+  annotations:
+    "helm.sh/hook": post-delete
+    "helm.sh/hook-weight": "0" # must be created before cleanup job
+    "helm.sh/hook-delete-policy": hook-succeeded,before-hook-creation
+roleRef:
+  kind: ClusterRole
+  name: gloo-resource-cleanup{{ include "gloo.rbacNameSuffix" . }}
+  apiGroup: rbac.authorization.k8s.io
+subjects:
+- kind: ServiceAccount
+  name: gloo-resource-cleanup
+  namespace: {{ .Release.Namespace }}
+{{- end }}{{/* if .Values.global.glooRbac.create */}}
+{{- end }}{{/* if .Values.gateway.cleanupJob.enabled  */}}

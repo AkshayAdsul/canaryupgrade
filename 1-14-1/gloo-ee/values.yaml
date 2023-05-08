@@ -1,0 +1,493 @@
+create_license_secret: true
+global:
+  extauthCustomYaml: false
+  extensions:
+    caching:
+      deployment:
+        floatingUserId: null
+        glooAddress: gloo
+        image:
+          digest: sha256:f1a19c990d526829d4f2f393b9c5e8a3533ad1185289160489e234d3fc32ae26
+          pullPolicy: IfNotPresent
+          repository: caching-ee
+          tag: 1.14.1
+        name: caching-service
+        runAsUser: 10101
+        stats: null
+      enabled: false
+      name: caching-service
+      service:
+        httpPort: 8085
+    extAuth:
+      deployment:
+        floatingUserId: false
+        fsGroup: 10101
+        glooPort: 9977
+        image:
+          digest: sha256:688e8ce40c7e10490b7a5c89b763f37aa07ef4b1cb596ea572440a1092c9cd8f
+          fipsDigest: sha256:ea3497d1c2faa288cdf095089aa04d4ecf53c8e510add07f05418610431c16b8
+          pullPolicy: IfNotPresent
+          repository: extauth-ee
+          tag: 1.14.1
+        name: extauth
+        port: 8083
+        runAsUser: 10101
+        stats: null
+      enabled: true
+      envoySidecar: false
+      secretName: null
+      service:
+        name: extauth
+        port: 8083
+      serviceName: ext-auth
+      signingKey:
+        name: extauth-signing-key
+        signing-key: ""
+      standaloneDeployment: true
+      tlsEnabled: false
+      transportApiVersion: V3
+      userIdHeader: x-user-id
+    glooRedis:
+      enableAcl: true
+    rateLimit:
+      deployment:
+        aerospike:
+          address: ""
+          batchSize: 5000
+          commitLevel: 1
+          namespace: solo-namespace
+          port: 3000
+          readModeAP: 0
+          readModeSC: 0
+          set: ratelimiter
+          tls:
+            insecure: false
+            version: "1.3"
+        dynamodb:
+          batchSize: 100
+          consistentReads: true
+          region: us-east-2
+          tableName: rate-limits
+        floatingUserId: false
+        glooAddress: gloo
+        glooPort: 9977
+        image:
+          digest: sha256:773c22254bacf779f4f3cd87caf6a3a821a7663ff397ca795a678866427f305c
+          fipsDigest: sha256:cb46be62ff1cd633646e106462c8b37c587a71ee03401c5b75314a070ec2d667
+          pullPolicy: IfNotPresent
+          repository: rate-limit-ee
+          tag: 1.14.1
+        name: rate-limit
+        runAsUser: 10101
+        stats: null
+      enabled: true
+      service:
+        name: rate-limit
+        port: 18081
+  extraSpecs: true
+  glooMtls:
+    enabled: false
+    envoy:
+      image:
+        digest: sha256:12499c202f8ec63ce7f6febbb6fcc5979c2a8fa0f291009c98ad5700cdca432d
+        fipsDigest: sha256:422bca9c50a9cff0ad1968ea16c9cf22a758284601e6bac1f5879c8db10f7f88
+        repository: gloo-ee-envoy-wrapper
+        tag: 1.14.1
+    istioProxy: {}
+    sds:
+      image:
+        digest: sha256:590c736b027b476ab6fabc6750ab43f5b8bd0ed6582d50700eec4d105d047af1
+        repository: sds
+        tag: 1.14.1
+  glooRbac:
+    create: true
+  glooStats:
+    enabled: true
+    routePrefixRewrite: /stats/prometheus
+  graphql:
+    changeValidation:
+      rejectBreaking: false
+      rules:
+        dangerousToBreaking: false
+        deprecatedFieldRemovalDangerous: false
+        ignoreDescriptionChanges: false
+        ignoreUnreachable: false
+  image:
+    fips: false
+    pullPolicy: IfNotPresent
+    registry: quay.io/solo-io
+  istioIntegration: {}
+  istioSDS: {}
+gloo:
+  discovery:
+    deployment:
+      image:
+        digest: sha256:58a13bb842a4a7039acc391e6a61454244b3b8d7a2c930dae4cef9b4c33a0dec
+        pullPolicy: IfNotPresent
+        repository: discovery-ee
+        tag: 1.14.1
+      stats: {}
+    serviceAccount: {}
+  gateway:
+    Service: null
+    certGenJob:
+      image:
+        digest: sha256:19acc02f85555835e143faa375be74d9c12dd6ee465a39bf22b8a0d0ef8e7cda
+        pullPolicy: IfNotPresent
+        repository: certgen
+        tag: 1.14.1
+    cleanupJob:
+      image:
+        digest: sha256:a3498beb2c067c35c1784a3260da26103c918ce3d8a78600011d2f32ab4522ba
+        pullPolicy: IfNotPresent
+        repository: kubectl
+        tag: 1.14.1
+    proxyServiceAccount: {}
+    rolloutJob:
+      image:
+        digest: sha256:a3498beb2c067c35c1784a3260da26103c918ce3d8a78600011d2f32ab4522ba
+        pullPolicy: IfNotPresent
+        repository: kubectl
+        tag: 1.14.1
+    updateValues: true
+    validation: {}
+  gatewayProxies:
+    gatewayProxy:
+      failover: {}
+      podTemplate:
+        image:
+          digest: sha256:12499c202f8ec63ce7f6febbb6fcc5979c2a8fa0f291009c98ad5700cdca432d
+          fipsDigest: sha256:422bca9c50a9cff0ad1968ea16c9cf22a758284601e6bac1f5879c8db10f7f88
+          pullPolicy: IfNotPresent
+          repository: gloo-ee-envoy-wrapper
+          tag: 1.14.1
+      service:
+        extraAnnotations:
+          prometheus.io/path: /metrics
+          prometheus.io/port: "8081"
+          prometheus.io/scrape: "true"
+  gloo:
+    deployment:
+      image:
+        digest: sha256:5d68a062d1436a12ccc72fdb38d068ec81b73370d9787d4a73743d6d64811007
+        fipsDigest: sha256:2f7e61cb22c83b6e6cdee66e0989a7712fa3a176a2eb198bbc54b6d47181fb77
+        pullPolicy: IfNotPresent
+        repository: gloo-ee
+        tag: 1.14.1
+      ossImageTag: 1.14.1
+    serviceAccount: {}
+  ingressProxy:
+    deployment:
+      image:
+        digest: sha256:12499c202f8ec63ce7f6febbb6fcc5979c2a8fa0f291009c98ad5700cdca432d
+        fipsDigest: sha256:422bca9c50a9cff0ad1968ea16c9cf22a758284601e6bac1f5879c8db10f7f88
+        pullPolicy: IfNotPresent
+        repository: gloo-ee-envoy-wrapper
+        tag: 1.14.1
+  license_secret_name: license
+  settings:
+    aws: {}
+    circuitBreakers: {}
+    integrations:
+      knative:
+        proxy:
+          image:
+            digest: sha256:12499c202f8ec63ce7f6febbb6fcc5979c2a8fa0f291009c98ad5700cdca432d
+            fipsDigest: sha256:422bca9c50a9cff0ad1968ea16c9cf22a758284601e6bac1f5879c8db10f7f88
+            pullPolicy: IfNotPresent
+            repository: gloo-ee-envoy-wrapper
+            tag: 1.14.1
+gloo-fed:
+  create_license_secret: false
+grafana:
+  adminPassword: admin
+  adminUser: admin
+  dashboardProviders:
+    dashboardproviders.yaml:
+      apiVersion: 1
+      providers:
+      - disableDeletion: false
+        editable: true
+        folder: gloo
+        name: gloo
+        options:
+          path: /var/lib/grafana/dashboards/gloo
+        orgId: 1
+        type: file
+  dashboardsConfigMaps:
+    gloo: glooe-grafana-custom-dashboards-v2
+  datasources:
+    datasources.yaml:
+      apiVersion: 1
+      datasources:
+      - access: proxy
+        isDefault: true
+        name: gloo
+        type: prometheus
+        url: http://glooe-prometheus-server:80
+  defaultInstallationEnabled: true
+  fullnameOverride: glooe-grafana
+  initChownData:
+    enabled: false
+  nameOverride: glooe-grafana
+  persistence:
+    enabled: true
+    size: 100Mi
+  rbac:
+    create: false
+    pspEnabled: false
+  securityContext:
+    fsGroup: 472
+    runAsGroup: 472
+    runAsUser: 472
+  testFramework:
+    enabled: false
+observability:
+  customGrafana: {}
+  deployment:
+    floatingUserId: false
+    image:
+      digest: sha256:6b94d80d43bdc3a7eeef00ede0b97248188bcd477daa65ff8e0d53b6304b1bd3
+      pullPolicy: IfNotPresent
+      repository: observability-ee
+      tag: 1.14.1
+    runAsUser: 10101
+    stats: null
+  enabled: true
+  upstreamDashboardTemplate: ""
+prometheus:
+  alertmanager:
+    enabled: false
+  enabled: true
+  kube-state-metrics:
+    fullnameOverride: glooe-prometheus-kube-state-metrics-v2
+  nameOverride: glooe-prometheus
+  nodeExporter:
+    enabled: false
+  pushgateway:
+    enabled: false
+  server:
+    fullnameOverride: glooe-prometheus-server
+    global:
+      evaluation_interval: 10s
+      scrape_interval: 10s
+    persistentVolume:
+      size: 16Gi
+    strategy:
+      type: Recreate
+  serverFiles:
+    prometheus.yml:
+      scrape_configs:
+      - job_name: kube-state-metrics
+        kubernetes_sd_configs:
+        - role: service
+        relabel_configs:
+        - action: keep
+          regex: kube-state-metrics
+          source_labels:
+          - __meta_kubernetes_service_label_app_kubernetes_io_name
+      - job_name: kubernetes-service-endpoints
+        kubernetes_sd_configs:
+        - role: endpoints
+        relabel_configs:
+        - action: keep
+          regex: true
+          source_labels:
+          - __meta_kubernetes_service_labelpresent_gloo
+        - action: keep
+          regex: true
+          source_labels:
+          - __meta_kubernetes_service_annotation_prometheus_io_scrape
+        - action: replace
+          regex: (https?)
+          source_labels:
+          - __meta_kubernetes_service_annotation_prometheus_io_scheme
+          target_label: __scheme__
+        - action: replace
+          regex: (.+)
+          source_labels:
+          - __meta_kubernetes_service_annotation_prometheus_io_path
+          target_label: __metrics_path__
+        - action: replace
+          regex: ([^:]+)(?::\d+)?;(\d+)
+          replacement: $1:$2
+          source_labels:
+          - __address__
+          - __meta_kubernetes_service_annotation_prometheus_io_port
+          target_label: __address__
+        - action: labelmap
+          regex: __meta_kubernetes_service_label_(.+)
+        - action: replace
+          source_labels:
+          - __meta_kubernetes_namespace
+          target_label: kubernetes_namespace
+        - action: replace
+          source_labels:
+          - __meta_kubernetes_service_name
+          target_label: kubernetes_name
+        - action: replace
+          source_labels:
+          - __meta_kubernetes_pod_node_name
+          target_label: kubernetes_node
+      - job_name: kubernetes-service-endpoints-slow
+        kubernetes_sd_configs:
+        - role: endpoints
+        relabel_configs:
+        - action: keep
+          regex: true
+          source_labels:
+          - __meta_kubernetes_service_annotation_prometheus_io_scrape_slow
+        - action: replace
+          regex: (https?)
+          source_labels:
+          - __meta_kubernetes_service_annotation_prometheus_io_scheme
+          target_label: __scheme__
+        - action: replace
+          regex: (.+)
+          source_labels:
+          - __meta_kubernetes_service_annotation_prometheus_io_path
+          target_label: __metrics_path__
+        - action: replace
+          regex: ([^:]+)(?::\d+)?;(\d+)
+          replacement: $1:$2
+          source_labels:
+          - __address__
+          - __meta_kubernetes_service_annotation_prometheus_io_port
+          target_label: __address__
+        - action: labelmap
+          regex: __meta_kubernetes_service_label_(.+)
+        - action: replace
+          source_labels:
+          - __meta_kubernetes_namespace
+          target_label: kubernetes_namespace
+        - action: replace
+          source_labels:
+          - __meta_kubernetes_service_name
+          target_label: kubernetes_name
+        - action: replace
+          source_labels:
+          - __meta_kubernetes_pod_node_name
+          target_label: kubernetes_node
+        scrape_interval: 5m
+        scrape_timeout: 30s
+      - job_name: kubernetes-pods
+        kubernetes_sd_configs:
+        - role: pod
+        relabel_configs:
+        - action: keep
+          regex: true
+          source_labels:
+          - __meta_kubernetes_pod_annotation_prometheus_io_scrape
+        - action: replace
+          regex: (https?)
+          source_labels:
+          - __meta_kubernetes_pod_annotation_prometheus_io_scheme
+          target_label: __scheme__
+        - action: replace
+          regex: (.+)
+          source_labels:
+          - __meta_kubernetes_pod_annotation_prometheus_io_path
+          target_label: __metrics_path__
+        - action: replace
+          regex: ([^:]+)(?::\d+)?;(\d+)
+          replacement: $1:$2
+          source_labels:
+          - __address__
+          - __meta_kubernetes_pod_annotation_prometheus_io_port
+          target_label: __address__
+        - action: labelmap
+          regex: __meta_kubernetes_pod_label_(.+)
+        - action: replace
+          source_labels:
+          - __meta_kubernetes_namespace
+          target_label: kubernetes_namespace
+        - action: replace
+          source_labels:
+          - __meta_kubernetes_pod_name
+          target_label: kubernetes_pod_name
+        - action: drop
+          regex: Pending|Succeeded|Failed
+          source_labels:
+          - __meta_kubernetes_pod_phase
+      - job_name: kubernetes-pods-slow
+        kubernetes_sd_configs:
+        - role: pod
+        relabel_configs:
+        - action: keep
+          regex: true
+          source_labels:
+          - __meta_kubernetes_pod_annotation_prometheus_io_scrape_slow
+        - action: replace
+          regex: (https?)
+          source_labels:
+          - __meta_kubernetes_pod_annotation_prometheus_io_scheme
+          target_label: __scheme__
+        - action: replace
+          regex: (.+)
+          source_labels:
+          - __meta_kubernetes_pod_annotation_prometheus_io_path
+          target_label: __metrics_path__
+        - action: replace
+          regex: ([^:]+)(?::\d+)?;(\d+)
+          replacement: $1:$2
+          source_labels:
+          - __address__
+          - __meta_kubernetes_pod_annotation_prometheus_io_port
+          target_label: __address__
+        - action: labelmap
+          regex: __meta_kubernetes_pod_label_(.+)
+        - action: replace
+          source_labels:
+          - __meta_kubernetes_namespace
+          target_label: kubernetes_namespace
+        - action: replace
+          source_labels:
+          - __meta_kubernetes_pod_name
+          target_label: kubernetes_pod_name
+        - action: drop
+          regex: Pending|Succeeded|Failed
+          source_labels:
+          - __meta_kubernetes_pod_phase
+        scrape_interval: 5m
+        scrape_timeout: 30s
+rbac:
+  create: false
+redis:
+  aclPrefix: user default +@all allkeys on >
+  cert:
+    cacrt: ""
+    crt: ""
+    enabled: false
+    key: ""
+  clientSideShardingEnabled: false
+  clustered: false
+  deployment:
+    enablePodSecurityContext: true
+    floatingUserId: false
+    fsGroup: 999
+    image:
+      pullPolicy: IfNotPresent
+      registry: docker.io
+      repository: redis
+      tag: 6.2.4
+    initContainer:
+      image:
+        registry: docker.io
+        repository: busybox
+        tag: "1.28"
+    name: redis
+    runAsGroup: 999
+    runAsUser: 999
+    staticPort: 6379
+  disabled: false
+  service:
+    name: redis
+    port: 6379
+settings:
+  aws: {}
+  circuitBreakers: {}
+  integrations:
+    knative:
+      proxy:
+        image:
+          repository: ""

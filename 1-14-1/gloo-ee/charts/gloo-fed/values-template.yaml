@@ -1,0 +1,90 @@
+enabled: true
+glooFed:
+  replicas: 1
+  image:
+    pullPolicy: IfNotPresent
+    repository: gloo-fed
+    tag: %gloo-fed-version%
+  resources:
+    requests:
+      cpu: 125m
+      memory: 256Mi
+  retries:
+    clusterWatcherRemote:
+      type: backoff
+      delay: 1s
+      maxDelay: 0
+      maxJitter: 100ms
+      attempts: 0
+    clusterWatcherLocal:
+      type: backoff
+      delay: 100ms
+      maxDelay: 0
+      maxJitter: 100ms
+      attempts: 5
+# the UI can be enabled independently of gloo-fed
+glooFedApiserver:
+  enable: true
+  port: 10101
+  healthCheckPort: 8081
+  stats: null
+  floatingUserId: false
+  runAsUser: 101
+  image:
+    pullPolicy: IfNotPresent
+    repository: gloo-fed-apiserver
+    tag: %gloo-fed-apiserver-version%
+  resources:
+    requests:
+      cpu: 125m
+      memory: 256Mi
+  envoy:
+    bootstrapConfig:
+      configMapName: gloo-fed-default-apiserver-envoy-config
+    image:
+      pullPolicy: IfNotPresent
+      repository: gloo-fed-apiserver-envoy
+      tag: %gloo-fed-apiserver-envoy-version%
+    resources:
+      requests:
+        cpu: 125m
+        memory: 256Mi
+  console:
+    port: 8090
+    image:
+      pullPolicy: IfNotPresent
+      repository: gloo-federation-console
+      tag: %gloo-federation-console-version%
+    resources:
+      requests:
+        cpu: 125m
+        memory: 256Mi
+global:
+  glooStats:
+    enabled: true
+  glooMtls:
+    enabled: false
+  image:
+    extended: false
+    pullPolicy: IfNotPresent
+    registry: quay.io/solo-io
+  istioIntegration: {}
+  istioSDS: {}
+  console:
+    readOnly: false
+    apiExplorerEnabled: true
+license_key: ""
+license_secret_name: license
+create_license_secret: true
+enableMultiClusterRbac: false
+rbacWebhook:
+  image:
+    pullPolicy: IfNotPresent
+    repository: gloo-fed-rbac-validating-webhook
+    tag: %gloo-fed-rbac-validating-webhook-version%
+  resources:
+    requests:
+      cpu: 125m
+      memory: 256Mi
+rbac:
+  create: true

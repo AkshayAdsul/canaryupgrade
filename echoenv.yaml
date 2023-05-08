@@ -1,0 +1,38 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: echoenv-deployment-1
+  namespace: default
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: echoenv-1
+  template:
+    metadata:
+      labels:
+        app: echoenv-1
+    spec:
+      containers:
+        - name: echoenv-1
+          image: quay.io/simonkrenger/echoenv
+          imagePullPolicy: IfNotPresent
+          ports:
+            - name: http-port
+              containerPort: 8080
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: echoenv-service-1
+  namespace: default
+  labels:
+    app: echoenv-1
+spec:
+  ports:
+    - name: http-port
+      port: 8080
+      targetPort: http-port
+      protocol: TCP
+  selector:
+    app: echoenv-1

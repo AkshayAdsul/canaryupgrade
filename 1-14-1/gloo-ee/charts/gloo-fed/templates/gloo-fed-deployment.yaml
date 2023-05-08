@@ -1,0 +1,134 @@
+# Deployment manifest for gloo-fed
+{{- if .Values.enabled }}
+{{- $glooFed := $.Values.glooFed}}
+{{- $glooFedImage := merge $glooFed.image .Values.global.image }}
+{{- $statsConfig := coalesce $glooFed.stats .Values.global.glooStats }}
+
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  labels:
+    app: gloo-fed
+  name: gloo-fed
+  namespace: {{ .Release.Namespace }}
+spec:
+  selector:
+    matchLabels:
+      app: gloo-fed
+{{- if not (kindIs "invalid" $glooFed.replicas) }}
+  replicas: {{ $glooFed.replicas }}
+{{- end }}
+  template:
+    metadata:
+      labels:
+        app: gloo-fed
+      {{- if $statsConfig.enabled }}
+      annotations:
+        prometheus.io/path: /metrics
+        prometheus.io/port: "9091"
+        prometheus.io/scrape: "true"
+      {{- end }}
+    spec:
+      serviceAccountName: gloo-fed
+      containers:
+      - image: {{ $glooFedImage.registry }}/{{ $glooFedImage.repository }}:{{ $glooFedImage.tag }}
+        env:
+        - name: POD_NAMESPACE
+          valueFrom:
+            fieldRef:
+              fieldPath: metadata.namespace
+        - name: POD_NAME
+          valueFrom:
+            fieldRef:
+              fieldPath: metadata.name
+        - name: WRITE_NAMESPACE
+          value: {{ .Release.Namespace }}
+        - name: GLOO_LICENSE_KEY
+          valueFrom:
+            secretKeyRef:
+              name: {{ .Values.license_secret_name }}
+              key: license-key
+        {{- if $statsConfig.enabled }}
+        - name: START_STATS_SERVER
+          value: "true"
+        {{- end }}
+        {{- with (($glooFed.retries).clusterWatcherRemote).type }}
+        - name: CW_REMOTE_RETRY_TYPE
+          value: {{ . | quote }}
+        {{- end }}
+        {{- with (include "gloofed.validateDuration" (($glooFed.retries).clusterWatcherRemote).delay) }}
+        - name: CW_REMOTE_RETRY_DELAY
+          value: {{ . | quote }}
+        {{- end }}
+        {{- with (include "gloofed.validateDuration" (($glooFed.retries).clusterWatcherRemote).maxDelay) }}
+        - name: CW_REMOTE_RETRY_MAX_DELAY
+          value: {{ . | quote }}
+        {{- end }}
+        {{- with (include "gloofed.validateDuration" (($glooFed.retries).clusterWatcherRemote).maxJitter) }}
+        - name: CW_REMOTE_RETRY_MAX_JITTER
+          value: {{ . | quote }}
+        {{- end }}
+        {{- if not (kindIs "invalid" (($glooFed.retries).clusterWatcherRemote).attempts) }}
+        - name: CW_REMOTE_RETRY_ATTEMPTS
+          value: {{ (($glooFed.retries).clusterWatcherRemote).attempts | quote }}
+        {{- end }}
+        {{- with (($glooFed.retries).clusterWatcherLocal).type }}
+        - name: CW_LOCAL_RETRY_TYPE
+          value: {{ . | quote }}
+        {{- end }}
+        {{- with (include "gloofed.validateDuration" (($glooFed.retries).clusterWatcherLocal).delay) }}
+        - name: CW_LOCAL_RETRY_DELAY
+          value: {{ . | quote }}
+        {{- end }}
+        {{- with (include "gloofed.validateDuration" (($glooFed.retries).clusterWatcherLocal).maxDelay) }}
+        - name: CW_LOCAL_RETRY_MAX_DELAY
+          value: {{ . | quote }}
+        {{- end }}
+        {{- with (include "gloofed.validateDuration" (($glooFed.retries).clusterWatcherLocal).maxJitter) }}
+        - name: CW_LOCAL_RETRY_MAX_JITTER
+          value: {{ . | quote }}
+        {{- end }}
+        {{- if not (kindIs "invalid" (($glooFed.retries).clusterWatcherLocal).attempts) }}
+        - name: CW_LOCAL_RETRY_ATTEMPTS
+          value: {{ (($glooFed.retries).clusterWatcherLocal).attempts | quote }}
+        {{- end }}
+        imagePullPolicy: {{ $glooFedImage.pullPolicy }}
+        name: gloo-fed
+        {{- if $statsConfig.podMonitorEnabled }}
+        ports:
+          - name: http-monitoring
+            containerPort: 9091
+        {{- end }}
+{{- if $glooFed.resources }}
+        resources:
+{{ toYaml $glooFed.resources | indent 10}}
+{{- else}}
+        resources:
+          requests:
+            cpu: 500m
+            memory: 256Mi
+        {{- end}}
+        securityContext:
+          readOnlyRootFilesystem: true
+          allowPrivilegeEscalation: false
+          capabilities:
+            drop:
+            - ALL
+      {{- if $glooFedImage.pullSecret }}
+      imagePullSecrets:
+      - name: {{ $glooFedImage.pullSecret }}
+  {{- end}}
+
+
+---
+
+# Service account for gloo-fed
+
+apiVersion: v1
+kind: ServiceAccount
+metadata:
+  labels:
+    app: gloo-fed
+  name: gloo-fed
+  namespace: {{ $.Release.Namespace }}
+{{- end }} {{/* .Values.enabled */}}

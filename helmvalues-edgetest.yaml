@@ -1,0 +1,220 @@
+create_license_secret: true
+global:
+  extauthCustomYaml: false
+  extensions:
+    extAuth:
+      enabled: false
+    glooRedis:
+      enableAcl: false
+    rateLimit:
+      enabled: false
+  extraSpecs: false
+  glooStats:
+    enabled: true
+    routePrefixRewrite: /stats/prometheus
+gloo:
+  license_secret_name: license
+  ingress:
+    enabled: false
+  settings:
+    linkerd: false
+    integrations:
+      knative:
+        enabled: false
+    disableProxyGarbageCollection: true
+    regexMaxProgramSize: 100
+    disableKubernetesDestinations: true
+    invalidConfigPolicy:
+      replaceInvalidRoutes: true
+      invalidRouteResponseCode: 404
+      invalidRouteResponseBody: Gloo Gateway has invalid configuration. Administrators should run `glooctl check` to find and fix config errors.
+  gloo:
+    loglevel: info
+    splitLogOutput: false
+    deployment:
+      replicas: 1
+      restartPolicy: Always
+      resources:
+        limits:
+          cpu: "2"
+          memory: "4Gi"
+        requests:
+          cpu: "1"
+          memory: "2Gi"
+  discovery:
+    enabled: true
+    loglevel: info
+    deployment:
+      replicas: 1
+      restartPolicy: Always
+      resources:
+        limits:
+          cpu: "2"
+          memory: "4Gi"
+        requests:
+          cpu: "1"
+          memory: "2Gi"
+  gateway:
+    enabled: true
+    loglevel: info
+    validation:
+      enabled: true
+      allowWarnings: true
+      alwaysAcceptResources: false
+      warnRouteShortCircuiting: true
+      failurePolicy: Fail
+    deployment:
+      replicas: 1
+      restartPolicy: Always
+      resources:
+        limits:
+          cpu: "2"
+          memory: "4Gi"
+        requests:
+          cpu: "1"
+          memory: "2Gi"
+  gatewayProxies:
+    gatewayProxy:
+      kind:
+        deployment:
+          restartPolicy: Always
+      podTemplate:
+        probes: true
+        resources:
+          limits:
+            cpu: "4"
+            memory: "4Gi"
+          requests:
+            cpu: "2"
+            memory: "2Gi"
+        gracefulShutdown:
+          enabled: true
+          sleepTimeSeconds: 30
+        terminationGracePeriodSeconds: 30
+        enablePodSecurityContext: true
+      globalDownstreamMaxConnections: 30000
+      healthyPanicThreshold: 80
+      service:
+        type: LoadBalancer
+        extraAnnotations:
+          cloud.google.com/load-balancer-type: Internal
+          prometheus.io/path: /metrics
+          prometheus.io/port: "8081"
+          prometheus.io/scrape: "true"
+      loopBackAddress: 0.0.0.0
+      envoyApiVersion: V3
+      horizontalPodAutoscaler:
+        apiVersion: autoscaling/v1
+        minReplicas: 4
+        maxReplicas: 16
+        targetCPUUtilizationPercentage: 70
+      podDisruptionBudget:
+        minAvailable: 1
+      logLevel: info
+      gatewaySettings:
+        customHttpGateway:
+          options:
+            healthCheck:
+              path: /envoy-hc
+            httpConnectionManagerSettings:
+              useRemoteAddress: true
+        accessLoggingService:
+          accessLog:
+            - fileSink:
+                path: /dev/stdout
+                jsonFormat:
+                  filterState: '%FILTER_STATE(io.solo.modsecurity.audit_log)%'
+                  httpMethod: '%REQ(:METHOD)%'
+                  protocol: '%PROTOCOL%'
+                  responseCode: '%RESPONSE_CODE%'
+                  clientDuration: '%DURATION%'
+                  targetDuration: '%RESPONSE_DURATION%'
+                  path: '%REQ(X-ENVOY-ORIGINAL-PATH?:PATH)%'
+                  upstreamName: '%UPSTREAM_CLUSTER%'
+                  systemTime: '%START_TIME%'
+                  requestId: '%REQ(X-REQUEST-ID)%'
+                  responseFlags: '%RESPONSE_FLAGS%'
+                  xForwardedFor: '%REQ(X-FORWARDED-FOR)%'
+                  downstreamRemoteAddress: '%DOWNSTREAM_REMOTE_ADDRESS%'
+gloo-fed:
+  enabled: false
+  glooFedApiserver:
+    enable: false
+gloo-fed-console:
+  enabled: false
+grafana:
+  adminPassword: admin
+  adminUser: admin
+  dashboardProviders:
+    dashboardproviders.yaml:
+      apiVersion: 1
+      providers:
+      - disableDeletion: false
+        editable: true
+        folder: gloo
+        name: gloo
+        options:
+          path: /var/lib/grafana/dashboards/gloo
+        orgId: 1
+        type: file
+  dashboardsConfigMaps:
+    gloo: glooe-grafana-custom-dashboards
+  datasources:
+    datasources.yaml:
+      apiVersion: 1
+      datasources:
+      - access: proxy
+        isDefault: true
+        name: gloo
+        type: prometheus
+        url: http://glooe-prometheus-server:80
+  defaultInstallationEnabled: true
+  fullnameOverride: glooe-grafana
+  initChownData:
+    enabled: false
+  nameOverride: glooe-grafana
+  persistence:
+    enabled: true
+    size: 100Mi
+  rbac:
+    create: false
+    pspEnabled: false
+  securityContext:
+    fsGroup: 472
+    runAsGroup: 472
+    runAsUser: 472
+  testFramework:
+    enabled: false
+observability:
+  customGrafana: {}
+  deployment:
+    floatingUserId: false
+    image:
+      pullPolicy: IfNotPresent
+      repository: observability-ee
+    runAsUser: 10101
+    stats: null
+  enabled: true
+  upstreamDashboardTemplate: ""
+prometheus:
+  alertmanager:
+    enabled: false
+  enabled: true
+  kube-state-metrics:
+    fullnameOverride: glooe-prometheus-kube-state-metrics
+  nameOverride: glooe-prometheus
+  nodeExporter:
+    enabled: false
+  pushgateway:
+    enabled: false
+  server:
+    fullnameOverride: glooe-prometheus-server
+    global:
+      evaluation_interval: 10s
+      scrape_interval: 10s
+    persistentVolume:
+      size: 16Gi
+rbac:
+  create: false
+redis:
+  disabled: true

@@ -1,0 +1,159 @@
+# This is used if gloo-fed is NOT enabled, i.e. we are using the single-cluster Gloo apiserver
+# TODO change the ServiceAccount name once we split out the single-cluster Gloo apiserver into its own helm chart
+{{- if not .Values.enabled }}
+{{- if .Values.glooFedApiserver.enable }}
+{{- if .Values.rbac.create }}
+{{- if .Values.glooFedApiserver.namespaceRestrictedMode }}
+kind: Role
+{{- else }}
+kind: ClusterRole
+{{- end }}{{/* .Values.glooFedApiserver.namespaceRestrictedMode */}}
+apiVersion: rbac.authorization.k8s.io/v1
+metadata:
+  {{- if .Values.glooFedApiserver.namespaceRestrictedMode }}
+  name: gloo-console
+  namespace: {{ .Release.Namespace }}
+  {{- else }}
+  name: gloo-console-{{ .Release.Namespace }}
+  {{- end }}{{/* .Values.glooFedApiserver.namespaceRestrictedMode */}}
+  labels:
+    app: gloo
+rules:
+- apiGroups:
+  - gloo.solo.io
+  resources:
+  - proxies
+  - settings
+  - upstreams
+  - upstreamgroups
+  verbs:
+  - get
+  - list
+  - watch
+- apiGroups:
+  - gateway.solo.io
+  resources:
+  - gateways
+  - httpgateways
+  - routetables
+  - virtualservices
+  verbs:
+  - get
+  - list
+  - watch
+- apiGroups:
+  - enterprise.gloo.solo.io
+  resources:
+  - authconfigs
+  verbs:
+  - get
+  - list
+  - watch
+- apiGroups:
+  - graphql.gloo.solo.io
+  resources:
+  - graphqlapis
+  verbs:
+  - get
+  - list
+  - watch
+  - create
+  - update
+  - patch
+  - delete
+- apiGroups:
+  - ratelimit.solo.io
+  resources:
+  - ratelimitconfigs
+  verbs:
+  - get
+  - list
+  - watch
+{{- if not .Values.glooFedApiserver.namespaceRestrictedMode }}
+- apiGroups:
+  - apps
+  resources:
+  - deployments
+  - daemonsets
+  verbs:
+  - get
+  - list
+  - watch
+- apiGroups:
+  - ""
+  resources:
+  - nodes
+  - pods
+  - services
+  verbs:
+  - get
+  - list
+  - watch
+{{- end }}{{/* not .Values.glooFedApiserver.namespaceRestrictedMode */}}
+
+---
+
+{{- if .Values.glooFedApiserver.namespaceRestrictedMode }}
+kind: RoleBinding
+{{- else }}
+kind: ClusterRoleBinding
+{{- end }}{{/* .Values.glooFedApiserver.namespaceRestrictedMode */}}
+apiVersion: rbac.authorization.k8s.io/v1
+metadata:
+  {{- if .Values.glooFedApiserver.namespaceRestrictedMode }}
+  name: gloo-console
+  namespace: {{ .Release.Namespace }}
+  {{- else }}
+  name: gloo-console-{{ .Release.Namespace }}
+  {{- end }}{{/* .Values.glooFedApiserver.namespaceRestrictedMode */}}
+  labels:
+    app: gloo
+subjects:
+- kind: ServiceAccount
+  name: gloo-fed-console
+  namespace: {{ .Release.Namespace }}
+roleRef:
+  {{- if .Values.glooFedApiserver.namespaceRestrictedMode }}
+  kind: Role
+  name: gloo-console
+  {{- else }}
+  kind: ClusterRole
+  name: gloo-console-{{ .Release.Namespace }}
+  {{- end }}{{/* .Values.glooFedApiserver.namespaceRestrictedMode */}}
+  apiGroup: rbac.authorization.k8s.io
+
+---
+
+# For reading envoy config dumps
+kind: Role
+apiVersion: rbac.authorization.k8s.io/v1
+metadata:
+  name: gloo-console-envoy
+  namespace: {{ .Release.Namespace }}
+rules:
+- apiGroups:
+  - ""
+  resources:
+  - services/proxy
+  verbs:
+  - get
+
+---
+
+kind: RoleBinding
+apiVersion: rbac.authorization.k8s.io/v1
+metadata:
+  name: gloo-console-envoy
+  namespace: {{ .Release.Namespace }}
+roleRef:
+  kind: Role
+  name: gloo-console-envoy
+  apiGroup: rbac.authorization.k8s.io
+subjects:
+- kind: ServiceAccount
+  name: gloo-fed-console
+  namespace: {{ .Release.Namespace }}
+
+{{- end }} {{/* .Values.rbac.create */}}
+{{- end }} {{/* .Values.glooFedApiserver.enable */}}
+{{- end }} {{/* not .Values.enabled */}}

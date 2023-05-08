@@ -1,0 +1,266 @@
+create_license_secret: true
+global:
+  glooRbac:
+    nameSuffix: 1-14-1
+  extauthCustomYaml: false
+  extensions:
+    caching:
+      deployment:
+        floatingUserId: null
+        glooAddress: gloo
+        image:
+          pullPolicy: IfNotPresent
+          repository: caching-ee
+          # tag: 1.12.24
+        name: caching-service
+        runAsUser: 10101
+        stats: null
+      enabled: false
+      name: caching-service
+      service:
+        httpPort: 8085
+    extAuth:
+      enabled: false
+    glooRedis:
+      enableAcl: false
+    rateLimit:
+      enabled: false
+  extraSpecs: false
+  glooStats:
+    enabled: true
+    routePrefixRewrite: /stats/prometheus
+  graphql:
+    changeValidation:
+      rejectBreaking: false
+      rules:
+        dangerousToBreaking: false
+        deprecatedFieldRemovalDangerous: false
+        ignoreDescriptionChanges: false
+        ignoreUnreachable: false
+gloo: # open-source gloo components
+  license_secret_name: license
+  ingress:
+    enabled: false
+  settings:
+    # singleNamespace: true # Enable to use install namespace as WatchNamespace and WriteNamespace https://github.com/solo-io/gloo/blob/master/install/helm/gloo/templates/18-settings.yaml#L145
+    linkerd: false
+    integrations:
+      knative:
+        enabled: false
+    disableProxyGarbageCollection: true
+    regexMaxProgramSize: 100
+    disableKubernetesDestinations: true
+    invalidConfigPolicy:
+      replaceInvalidRoutes: true
+      invalidRouteResponseCode: 404
+      invalidRouteResponseBody: Gloo Gateway has invalid configuration. Administrators should run `glooctl check` to find and fix config errors.
+    watchNamespaces:
+      - gloo-system-1-14-1
+      - default
+  gloo: # gloo-controller pods
+    loglevel: info
+    splitLogOutput: false
+    deployment:
+      replicas: 1
+      restartPolicy: Always
+      resources:
+        limits:
+          cpu: "2"
+          memory: "4Gi"
+        requests:
+          cpu: "1"
+          memory: "2Gi"
+  discovery:
+    enabled: true
+    loglevel: info
+    deployment:
+      replicas: 1
+      restartPolicy: Always
+      resources:
+        limits:
+          cpu: "2"
+          memory: "4Gi"
+        requests:
+          cpu: "1"
+          memory: "2Gi"
+  gateway:
+    enabled: true
+    loglevel: info
+    validation:
+      enabled: true
+      allowWarnings: true
+      alwaysAcceptResources: false
+      warnRouteShortCircuiting: true
+      failurePolicy: Fail
+    deployment:
+      replicas: 1
+      restartPolicy: Always
+      resources:
+        limits:
+          cpu: "2"
+          memory: "4Gi"
+        requests:
+          cpu: "1"
+          memory: "2Gi"
+  gatewayProxies:
+    gatewayProxy:
+      kind:
+        deployment:
+          restartPolicy: Always
+      podTemplate:
+        probes: true
+        livenessProbeEnabled: true
+        customReadinessProbe:
+          httpGet:
+            scheme: HTTP
+            port: 8080
+            path: /health/ready
+          failureThreshold: 2
+          initialDelaySeconds: 5
+          periodSeconds: 5
+        resources:
+          limits:
+            cpu: "4"
+            memory: "4Gi"
+          requests:
+            cpu: "2"
+            memory: "2Gi"
+        gracefulShutdown:
+          enabled: true
+          sleepTimeSeconds: 30
+        terminationGracePeriodSeconds: 30
+        enablePodSecurityContext: true
+      globalDownstreamMaxConnections: 30000
+      healthyPanicThreshold: 80
+      service:
+        type: LoadBalancer
+        # type: ClusterIP
+        loadBalancerIP: 10.152.0.11
+        extraAnnotations:
+          # cloud.google.com/neg: '{"exposed_ports":{"80":{"name":"gloo-edge-canary-http"}}}'
+          networking.gke.io/load-balancer-type: "Internal"
+          # cloud.google.com/load-balancer-type: Internal
+          # service.kubernetes.io/healthcheck: gojek-canary-healthcheck-test-1-12
+          prometheus.io/path: /metrics
+          prometheus.io/port: "8081"
+          prometheus.io/scrape: "true"
+      loopBackAddress: 0.0.0.0
+      envoyApiVersion: V3
+      horizontalPodAutoscaler:
+        apiVersion: autoscaling/v1
+        minReplicas: 1
+        maxReplicas: 16
+        targetCPUUtilizationPercentage: 70
+      podDisruptionBudget:
+        minAvailable: 1
+      logLevel: info
+      gatewaySettings:
+        customHttpGateway:
+          virtualServiceNamespaces:
+            - gloo-system-1-14-1
+          options:
+            healthCheck:
+              path: /health/ready
+            httpConnectionManagerSettings:
+              useRemoteAddress: true
+        accessLoggingService:
+          accessLog:
+            - fileSink:
+                path: /dev/stdout
+                jsonFormat:
+                  filterState: '%FILTER_STATE(io.solo.modsecurity.audit_log)%'
+                  httpMethod: '%REQ(:METHOD)%'
+                  protocol: '%PROTOCOL%'
+                  responseCode: '%RESPONSE_CODE%'
+                  clientDuration: '%DURATION%'
+                  targetDuration: '%RESPONSE_DURATION%'
+                  path: '%REQ(X-ENVOY-ORIGINAL-PATH?:PATH)%'
+                  upstreamName: '%UPSTREAM_CLUSTER%'
+                  systemTime: '%START_TIME%'
+                  requestId: '%REQ(X-REQUEST-ID)%'
+                  responseFlags: '%RESPONSE_FLAGS%'
+                  xForwardedFor: '%REQ(X-FORWARDED-FOR)%'
+                  downstreamRemoteAddress: '%DOWNSTREAM_REMOTE_ADDRESS%'
+gloo-fed:
+  enabled: false
+  glooFedApiserver:
+    enable: false
+gloo-fed-console:
+  enabled: false
+grafana:
+  defaultInstallationEnabled: false # disable
+  adminPassword: admin
+  adminUser: admin
+  dashboardProviders:
+    dashboardproviders.yaml:
+      apiVersion: 1
+      providers:
+      - disableDeletion: false
+        editable: true
+        folder: gloo
+        name: gloo
+        options:
+          path: /var/lib/grafana/dashboards/gloo
+        orgId: 1
+        type: file
+  dashboardsConfigMaps:
+    gloo: glooe-grafana-custom-dashboards
+  datasources:
+    datasources.yaml:
+      apiVersion: 1
+      datasources:
+      - access: proxy
+        isDefault: true
+        name: gloo
+        type: prometheus
+        url: http://glooe-prometheus-server:80
+  fullnameOverride: glooe-grafana
+  initChownData:
+    enabled: false
+  nameOverride: glooe-grafana
+  persistence:
+    enabled: true
+    size: 100Mi
+  rbac:
+    create: false
+    pspEnabled: false
+  securityContext:
+    fsGroup: 472
+    runAsGroup: 472
+    runAsUser: 472
+  testFramework:
+    enabled: false
+observability:
+  customGrafana: {}
+  deployment:
+    floatingUserId: false
+    image:
+      pullPolicy: IfNotPresent
+      repository: observability-ee
+    runAsUser: 10101
+    stats: null
+  enabled: false # disable
+  upstreamDashboardTemplate: ""
+prometheus:
+  alertmanager:
+    enabled: false
+  enabled: false # disable
+  kube-state-metrics:
+    fullnameOverride: glooe-prometheus-kube-state-metrics
+  nameOverride: glooe-prometheus
+  nodeExporter:
+    enabled: false
+  pushgateway:
+    enabled: false
+  server:
+    fullnameOverride: glooe-prometheus-server
+    global:
+      evaluation_interval: 10s
+      scrape_interval: 10s
+    persistentVolume:
+      size: 16Gi
+rbac:
+  create: false
+redis:
+  disabled: false
+  clustered: false
